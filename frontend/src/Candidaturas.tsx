@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 
 const modalidades = [
@@ -27,6 +27,7 @@ async function api<T>(path = '', options?: RequestInit): Promise<T> {
 }
 
 export default function Candidaturas() {
+  const empresaInput = useRef<HTMLInputElement>(null)
   const [itens, setItens] = useState<Candidatura[]>([])
   const [dados, setDados] = useState<Dados>(vazio)
   const [editando, setEditando] = useState<number | null>(null)
@@ -88,31 +89,39 @@ export default function Candidaturas() {
     finally { setOcupado(false) }
   }
 
+  const indicadores = [
+    { label: 'Oportunidades no radar', valor: itens.length, classe: 'cream', detalhe: 'Todas as candidaturas' },
+    { label: 'Em entrevista', valor: itens.filter((item) => item.status === 'ENTREVISTA').length, classe: 'lavender', detalhe: 'Conversas que abrem portas' },
+    { label: 'Ofertas recebidas', valor: itens.filter((item) => item.status === 'OFERTA').length, classe: 'pink', detalhe: 'Motivos para comemorar' },
+  ]
+
   return <section aria-labelledby="candidaturas-titulo">
-    <h2 id="candidaturas-titulo">Candidaturas</h2>
+    <div className="stats" aria-label="Resumo das candidaturas" aria-busy={carregando}>{indicadores.map((indicador) => <article className={`stat ${indicador.classe}`} key={indicador.label}><p>{indicador.label}</p><strong>{carregando || (erro && itens.length === 0) ? '—' : indicador.valor.toString().padStart(2, '0')}</strong><span>{indicador.detalhe}</span></article>)}</div>
+    <div className="section-heading"><div><p className="eyebrow">SEU PRÓXIMO CAPÍTULO</p><h2 id="candidaturas-titulo">Oportunidades em movimento<span>.</span></h2></div><span className="section-index" aria-hidden="true">01 / SEU RADAR</span></div>
     {erro && <p role="alert" className="erro">{erro}</p>}
     <p role="status" className="sucesso">{sucesso}</p>
-    <form onSubmit={salvar}>
-      <h3>{editando === null ? 'Nova candidatura' : 'Editar candidatura'}</h3>
+    <div className="workspace"><form id="formulario" onSubmit={salvar}>
+      <p className="eyebrow">UM NOVO COMEÇO <span aria-hidden="true">↗</span></p>
+      <h3 tabIndex={-1}>{editando === null ? 'Nova candidatura' : 'Editar candidatura'}</h3>
       <fieldset disabled={ocupado || carregando}>
-        <label>Empresa<input required maxLength={200} value={dados.empresa} onChange={(e) => setDados({ ...dados, empresa: e.target.value })} /></label>
-        <label>Título da vaga<input required maxLength={200} value={dados.titulo} onChange={(e) => setDados({ ...dados, titulo: e.target.value })} /></label>
-        <label>URL da vaga (opcional)<input type="url" pattern="https?://.*" maxLength={2048} value={dados.urlVaga} onChange={(e) => setDados({ ...dados, urlVaga: e.target.value })} /></label>
+        <label>Empresa<input ref={empresaInput} placeholder="Ex.: Empresa dos sonhos" required maxLength={200} value={dados.empresa} onChange={(e) => setDados({ ...dados, empresa: e.target.value })} /></label>
+        <label>Título da vaga<input placeholder="Ex.: Desenvolvedor(a) frontend" required maxLength={200} value={dados.titulo} onChange={(e) => setDados({ ...dados, titulo: e.target.value })} /></label>
+        <label className="full-width">URL da vaga (opcional)<input placeholder="https://" type="url" pattern="https?://.*" maxLength={2048} value={dados.urlVaga} onChange={(e) => setDados({ ...dados, urlVaga: e.target.value })} /></label>
         <label>Modalidade<select value={dados.modalidade} onChange={(e) => setDados({ ...dados, modalidade: e.target.value as Dados['modalidade'] })}>{modalidades.map((opcao) => <option key={opcao.value} value={opcao.value}>{opcao.label}</option>)}</select></label>
         <label>Status<select value={dados.status} onChange={(e) => setDados({ ...dados, status: e.target.value as Dados['status'] })}>{statusOpcoes.map((valor) => <option key={valor}>{valor}</option>)}</select></label>
-        <div className="acoes"><button type="submit">{ocupado ? 'Aguarde...' : editando === null ? 'Cadastrar' : 'Salvar alterações'}</button>
+        <div className="acoes full-width"><button className="primary" type="submit">{ocupado ? 'Aguarde...' : editando === null ? 'Cadastrar' : 'Salvar alterações'}</button>
           {editando !== null && <button type="button" onClick={() => { setEditando(null); setDados(vazio) }}>Cancelar edição</button>}</div>
       </fieldset>
     </form>
-    <div className="lista-cabecalho"><h3>Candidaturas cadastradas ({itens.length})</h3><button disabled={carregando || ocupado} onClick={recarregar}>Atualizar lista</button></div>
-    {carregando ? <p role="status">Carregando candidaturas...</p> : itens.length === 0 ? <p>Nenhuma candidatura para exibir.</p> :
+    <div className="list-panel" aria-busy={carregando}><div className="lista-cabecalho"><h3>Seu radar <span className="count">{itens.length}</span></h3><button disabled={carregando || ocupado} onClick={recarregar}>Atualizar lista</button></div>
+    {carregando ? <p role="status">Carregando candidaturas...</p> : itens.length === 0 ? <div className="empty-state"><span aria-hidden="true">✳</span><h3>{erro ? 'Seu radar está indisponível' : 'Tudo começa com uma oportunidade.'}</h3><p>{erro ? 'Tente atualizar a lista para carregar suas candidaturas.' : 'Encontrou uma vaga interessante? Registre ao lado e acompanhe por aqui.'}</p></div> :
       <ul className="candidaturas">{itens.map((item) => <li key={item.id}>
-        <h3>{item.titulo}</h3><p>{item.empresa}</p>
+        <div className="card-top"><span className="company-avatar" aria-hidden="true">{item.empresa.slice(0, 1).toUpperCase()}</span><span className={`status status-${item.status.toLowerCase()}`}>{item.status}</span></div><p className="company-name">{item.empresa}</p><h3>{item.titulo}</h3>
         <p>{modalidades.find((opcao) => opcao.value === item.modalidade)?.label ?? item.modalidade} · {item.status}</p>
         <p>Criada em {new Date(item.criadaEm).toLocaleString('pt-BR')}</p>
         {item.urlVaga && /^https?:\/\//i.test(item.urlVaga) && <a href={item.urlVaga} target="_blank" rel="noopener noreferrer">Ver vaga</a>}
-        <div className="acoes"><button disabled={ocupado || carregando} onClick={() => { setEditando(item.id); setDados({ empresa: item.empresa, titulo: item.titulo, urlVaga: item.urlVaga ?? '', modalidade: item.modalidade, status: item.status }); setErro(''); setSucesso('') }}>Editar</button>
-          <button disabled={ocupado || carregando} onClick={() => excluir(item)}>Excluir</button></div>
-      </li>)}</ul>}
+        <div className="acoes"><button disabled={ocupado || carregando} onClick={() => { setEditando(item.id); setDados({ empresa: item.empresa, titulo: item.titulo, urlVaga: item.urlVaga ?? '', modalidade: item.modalidade, status: item.status }); setErro(''); setSucesso(''); empresaInput.current?.focus() }}>Editar</button>
+          <button disabled={ocupado || carregando} className="danger" onClick={() => excluir(item)}>Excluir</button></div>
+      </li>)}</ul>}</div></div>
   </section>
 }

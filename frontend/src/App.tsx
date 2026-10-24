@@ -1,6 +1,7 @@
 
 import { useEffect, useState } from 'react'
 import Candidaturas from './Candidaturas'
+import Ghost from './Ghost'
 import './App.css'
 
 type ConnectionState =
@@ -51,19 +52,32 @@ function App() {
   }, [])
 
   return (
-    <main>
-      <h1>GhostApply</h1>
-      <p>Plataforma inteligente de candidaturas</p>
-      <h2>Status do backend</h2>
-      <p role="status" aria-live="polite">
-        {connection.state === 'loading' && 'Conectando ao backend...'}
-        {connection.state === 'connected' &&
-          `Conectado a ${connection.application} — Status: ${connection.status}`}
-        {connection.state === 'error' &&
-          'Erro de conexão. Verifique se o backend está disponível em http://localhost:8080 e recarregue a página.'}
-      </p>
-      <Candidaturas />
-    </main>
+    <>
+      <a className="skip-link" href="#conteudo">Pular para o conteúdo</a>
+      <header className="site-header">
+        <a className="brand" href="#" aria-label="GhostApply — início"><Ghost />GhostApply<span className="version">v0.2</span></a>
+        <nav aria-label="Navegação principal"><a href="#candidaturas-titulo">Minhas candidaturas <span aria-hidden="true">↗</span></a></nav>
+      </header>
+      <main id="conteudo">
+        <section className="hero" aria-labelledby="hero-titulo">
+          <div><p className="eyebrow"><span className="little-star" aria-hidden="true">✳</span> MENOS CAOS. MAIS POSSIBILIDADES.</p>
+            <h1 id="hero-titulo">Seu próximo passo.<br /><span>Sem assombração.</span></h1>
+            <p className="hero-description">Uma casa para todas as suas candidaturas.<br />Organize as oportunidades e acompanhe cada conquista.</p>
+            <a className="button primary" href="#formulario">Registrar candidatura <span aria-hidden="true">＋</span></a>
+          </div>
+          <aside className="hero-note"><span className="note-label">UM LEMBRETE AMIGO</span><Ghost className="hero-ghost" /><p>O futuro dá um frio na barriga.<br /><strong>A organização dá uma força.</strong></p><span className="note-spark" aria-hidden="true">✦</span></aside>
+        </section>
+        <Candidaturas />
+      </main>
+      <footer className="site-footer"><span className="footer-brand">GhostApply</span><p>Um passo de cada vez. Uma oportunidade de cada vez.</p>
+        <p className={`connection ${connection.state}`} role="status">
+          <span aria-hidden="true">● </span>
+          {connection.state === 'loading' && 'Verificando conexão…'}
+          {connection.state === 'connected' && 'API conectada'}
+          {connection.state === 'error' && 'API indisponível · tente recarregar a página'}
+        </p>
+      </footer>
+    </>
   )
 }
 
