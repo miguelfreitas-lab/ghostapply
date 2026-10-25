@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
+import { filtrarCandidaturas } from './buscaCandidaturas'
 
 const modalidades = [
   { value: 'REMOTO', label: 'REMOTO' },
@@ -29,6 +30,7 @@ async function api<T>(path = '', options?: RequestInit): Promise<T> {
 export default function Candidaturas() {
   const empresaInput = useRef<HTMLInputElement>(null)
   const [itens, setItens] = useState<Candidatura[]>([])
+  const [busca, setBusca] = useState('')
   const [dados, setDados] = useState<Dados>(vazio)
   const [editando, setEditando] = useState<number | null>(null)
   const [carregando, setCarregando] = useState(true)
@@ -89,6 +91,8 @@ export default function Candidaturas() {
     finally { setOcupado(false) }
   }
 
+  const itensFiltrados = filtrarCandidaturas(itens, busca)
+
   const indicadores = [
     { label: 'Oportunidades no radar', valor: itens.length, classe: 'cream', detalhe: 'Todas as candidaturas' },
     { label: 'Em entrevista', valor: itens.filter((item) => item.status === 'ENTREVISTA').length, classe: 'lavender', detalhe: 'Conversas que abrem portas' },
@@ -113,9 +117,13 @@ export default function Candidaturas() {
           {editando !== null && <button type="button" onClick={() => { setEditando(null); setDados(vazio) }}>Cancelar edição</button>}</div>
       </fieldset>
     </form>
-    <div className="list-panel" aria-busy={carregando}><div className="lista-cabecalho"><h3>Seu radar <span className="count">{itens.length}</span></h3><button disabled={carregando || ocupado} onClick={recarregar}>Atualizar lista</button></div>
+    <div className="list-panel" aria-busy={carregando}><div className="lista-cabecalho"><h3>Seu radar <span className="count" role="status">{itensFiltrados.length} de {itens.length}</span></h3><button disabled={carregando || ocupado} onClick={recarregar}>Atualizar lista</button></div>
+    <label className="busca-candidaturas" htmlFor="busca-candidaturas">Buscar por empresa ou título
+      <input id="busca-candidaturas" type="search" placeholder="Ex.: empresa ou desenvolvedor" value={busca} onChange={(event) => setBusca(event.target.value)} />
+    </label>
     {carregando ? <p role="status">Carregando candidaturas...</p> : itens.length === 0 ? <div className="empty-state"><span aria-hidden="true">✳</span><h3>{erro ? 'Seu radar está indisponível' : 'Tudo começa com uma oportunidade.'}</h3><p>{erro ? 'Tente atualizar a lista para carregar suas candidaturas.' : 'Encontrou uma vaga interessante? Registre ao lado e acompanhe por aqui.'}</p></div> :
-      <ul className="candidaturas">{itens.map((item) => <li key={item.id}>
+      itensFiltrados.length === 0 ? <div className="empty-state"><span aria-hidden="true">✳</span><h3>Nenhuma candidatura encontrada.</h3><p>Tente outro nome de empresa ou título, ou limpe a busca.</p></div> :
+      <ul className="candidaturas">{itensFiltrados.map((item) => <li key={item.id}>
         <div className="card-top"><span className="company-avatar" aria-hidden="true">{item.empresa.slice(0, 1).toUpperCase()}</span><span className={`status status-${item.status.toLowerCase()}`}>{item.status}</span></div><p className="company-name">{item.empresa}</p><h3>{item.titulo}</h3>
         <p>{modalidades.find((opcao) => opcao.value === item.modalidade)?.label ?? item.modalidade} · {item.status}</p>
         <p>Criada em {new Date(item.criadaEm).toLocaleString('pt-BR')}</p>
