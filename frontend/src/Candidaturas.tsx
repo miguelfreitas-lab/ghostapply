@@ -31,6 +31,8 @@ export default function Candidaturas() {
   const empresaInput = useRef<HTMLInputElement>(null)
   const [itens, setItens] = useState<Candidatura[]>([])
   const [busca, setBusca] = useState('')
+  const [statusFiltro, setStatusFiltro] = useState<Dados['status'] | ''>('')
+  const [modalidadeFiltro, setModalidadeFiltro] = useState<Dados['modalidade'] | ''>('')
   const [dados, setDados] = useState<Dados>(vazio)
   const [editando, setEditando] = useState<number | null>(null)
   const [carregando, setCarregando] = useState(true)
@@ -91,7 +93,10 @@ export default function Candidaturas() {
     finally { setOcupado(false) }
   }
 
-  const itensFiltrados = filtrarCandidaturas(itens, busca)
+  const itensFiltrados = filtrarCandidaturas(itens, busca, {
+    status: statusFiltro,
+    modalidade: modalidadeFiltro,
+  })
 
   const indicadores = [
     { label: 'Oportunidades no radar', valor: itens.length, classe: 'cream', detalhe: 'Todas as candidaturas' },
@@ -118,11 +123,27 @@ export default function Candidaturas() {
       </fieldset>
     </form>
     <div className="list-panel" aria-busy={carregando}><div className="lista-cabecalho"><h3>Seu radar <span className="count" role="status">{itensFiltrados.length} de {itens.length}</span></h3><button disabled={carregando || ocupado} onClick={recarregar}>Atualizar lista</button></div>
+    <div role="group" aria-label="Filtros de candidaturas">
     <label className="busca-candidaturas" htmlFor="busca-candidaturas">Buscar por empresa ou título
       <input id="busca-candidaturas" type="search" placeholder="Ex.: empresa ou desenvolvedor" value={busca} onChange={(event) => setBusca(event.target.value)} />
     </label>
+    <div className="seletores-filtros">
+      <label htmlFor="filtro-status">Filtrar por status
+        <select id="filtro-status" value={statusFiltro} onChange={(event) => setStatusFiltro(event.target.value as Dados['status'] | '')}>
+          <option value="">Todos</option>
+          {statusOpcoes.map((valor) => <option key={valor} value={valor}>{valor.charAt(0) + valor.slice(1).toLowerCase()}</option>)}
+        </select>
+      </label>
+      <label htmlFor="filtro-modalidade">Filtrar por modalidade
+        <select id="filtro-modalidade" value={modalidadeFiltro} onChange={(event) => setModalidadeFiltro(event.target.value as Dados['modalidade'] | '')}>
+          <option value="">Todas</option>
+          {modalidades.map((opcao) => <option key={opcao.value} value={opcao.value}>{opcao.label.charAt(0) + opcao.label.slice(1).toLowerCase()}</option>)}
+        </select>
+      </label>
+    </div>
+    </div>
     {carregando ? <p role="status">Carregando candidaturas...</p> : itens.length === 0 ? <div className="empty-state"><span aria-hidden="true">✳</span><h3>{erro ? 'Seu radar está indisponível' : 'Tudo começa com uma oportunidade.'}</h3><p>{erro ? 'Tente atualizar a lista para carregar suas candidaturas.' : 'Encontrou uma vaga interessante? Registre ao lado e acompanhe por aqui.'}</p></div> :
-      itensFiltrados.length === 0 ? <div className="empty-state"><span aria-hidden="true">✳</span><h3>Nenhuma candidatura encontrada.</h3><p>Tente outro nome de empresa ou título, ou limpe a busca.</p></div> :
+      itensFiltrados.length === 0 ? <div className="empty-state"><span aria-hidden="true">✳</span><h3>Nenhuma candidatura encontrada.</h3><p>Tente outro texto ou ajuste os filtros de status e modalidade.</p></div> :
       <ul className="candidaturas">{itensFiltrados.map((item) => <li key={item.id}>
         <div className="card-top"><span className="company-avatar" aria-hidden="true">{item.empresa.slice(0, 1).toUpperCase()}</span><span className={`status status-${item.status.toLowerCase()}`}>{item.status}</span></div><p className="company-name">{item.empresa}</p><h3>{item.titulo}</h3>
         <p>{modalidades.find((opcao) => opcao.value === item.modalidade)?.label ?? item.modalidade} · {item.status}</p>

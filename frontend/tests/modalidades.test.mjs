@@ -27,6 +27,30 @@ test('o formulário mostra HÍBRIDO com value HIBRIDO para a API', async () => {
       { value: 'PRESENCIAL', label: 'PRESENCIAL' },
     ])
     assert.doesNotMatch(select[1], /value="HÍBRIDO"/)
+
+    function opcoesDoFiltro(id) {
+      const filtro = html.match(new RegExp(`<select id="${id}"[^>]*>([\\s\\S]*?)<\\/select>`))
+      assert.ok(filtro, `O seletor ${id} deve estar presente`)
+      assert.match(html, new RegExp(`<label for="${id}">`))
+      assert.match(filtro[1], /<option value="" selected="">/)
+      return [...filtro[1].matchAll(/<option\b[^>]*value="([^"]*)"[^>]*>([^<]*)<\/option>/g)]
+        .map(([, value, label]) => ({ value, label }))
+    }
+
+    assert.deepEqual(opcoesDoFiltro('filtro-status'), [
+      { value: '', label: 'Todos' },
+      { value: 'SALVA', label: 'Salva' },
+      { value: 'INSCRITO', label: 'Inscrito' },
+      { value: 'ENTREVISTA', label: 'Entrevista' },
+      { value: 'OFERTA', label: 'Oferta' },
+      { value: 'REJEITADO', label: 'Rejeitado' },
+    ])
+    assert.deepEqual(opcoesDoFiltro('filtro-modalidade'), [
+      { value: '', label: 'Todas' },
+      { value: 'REMOTO', label: 'Remoto' },
+      { value: 'HIBRIDO', label: 'Híbrido' },
+      { value: 'PRESENCIAL', label: 'Presencial' },
+    ])
   } finally {
     await vite.close()
   }

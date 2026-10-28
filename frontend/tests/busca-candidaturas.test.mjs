@@ -55,3 +55,86 @@ test('reaplica o mesmo termo após cadastro, edição, exclusão e atualização
   assert.deepEqual(filtrarCandidaturas([itens[1]], termo).map((item) => item.id), [2])
   assert.deepEqual(filtrarCandidaturas(itens, ''), itens)
 })
+
+const itensComFiltros = Object.freeze([
+  Object.freeze({ id: 1, empresa: 'São José', titulo: 'Java Júnior', status: 'SALVA', modalidade: 'REMOTO' }),
+  Object.freeze({ id: 2, empresa: 'Cloud Brasil', titulo: 'Analista', status: 'INSCRITO', modalidade: 'HIBRIDO' }),
+  Object.freeze({ id: 3, empresa: 'Huawei', titulo: 'Cloud Júnior', status: 'ENTREVISTA', modalidade: 'PRESENCIAL' }),
+  Object.freeze({ id: 4, empresa: 'Outra empresa', titulo: 'Cloud Sênior', status: 'OFERTA', modalidade: 'HIBRIDO' }),
+  Object.freeze({ id: 5, empresa: 'Empresa Java', titulo: 'Analista', status: 'REJEITADO', modalidade: 'REMOTO' }),
+  Object.freeze({ id: 6, empresa: 'Tecnologia', titulo: 'Java Pleno', status: 'ENTREVISTA', modalidade: 'HIBRIDO' }),
+])
+
+function ids(busca, filtros, lista = itensComFiltros) {
+  return filtrarCandidaturas(lista, busca, filtros).map((item) => item.id)
+}
+
+test('filtra isoladamente por cada status canônico', () => {
+  for (const [status, esperados] of [
+    ['SALVA', [1]], ['INSCRITO', [2]], ['ENTREVISTA', [3, 6]], ['OFERTA', [4]], ['REJEITADO', [5]],
+  ]) {
+    assert.deepEqual(ids('', { status }), esperados)
+  }
+})
+
+test('filtra isoladamente por cada modalidade canônica', () => {
+  for (const [modalidade, esperados] of [
+    ['REMOTO', [1, 5]], ['HIBRIDO', [2, 4, 6]], ['PRESENCIAL', [3]],
+  ]) {
+    assert.deepEqual(ids('', { modalidade }), esperados)
+  }
+})
+
+test('combina texto com status ou modalidade e combina os dois seletores', () => {
+  assert.deepEqual(ids('cloud', { status: 'OFERTA' }), [4])
+  assert.deepEqual(ids('cloud', { modalidade: 'HIBRIDO' }), [2, 4])
+  assert.deepEqual(ids('', { status: 'ENTREVISTA', modalidade: 'PRESENCIAL' }), [3])
+})
+
+test('aplica E entre os três critérios mantendo a normalização textual', () => {
+  assert.deepEqual(ids('  CLÓUD  ', { status: 'OFERTA', modalidade: 'HIBRIDO' }), [4])
+  assert.deepEqual(ids('java', { status: 'OFERTA', modalidade: 'HIBRIDO' }), [])
+  assert.deepEqual(ids('cloud', { status: 'OFERTA', modalidade: 'REMOTO' }), [])
+  assert.deepEqual(ids('cloud', { status: 'REJEITADO', modalidade: 'HIBRIDO' }), [])
+})
+
+test('Todos e Todas removem apenas as respectivas restrições', () => {
+  assert.deepEqual(ids('cloud', { status: '', modalidade: 'HIBRIDO' }), [2, 4])
+  assert.deepEqual(ids('cloud', { status: 'OFERTA', modalidade: '' }), [4])
+  assert.deepEqual(ids('cloud', { status: '', modalidade: '' }), [2, 3, 4])
+  assert.deepEqual(filtrarCandidaturas(itensComFiltros, '', {}), itensComFiltros)
+  assert.deepEqual(filtrarCandidaturas(itensComFiltros, '', { status: '', modalidade: '' }), itensComFiltros)
+})
+
+test('os critérios de enum usam valores exatos, sem rótulos acentuados', () => {
+  assert.deepEqual(ids('', { modalidade: 'HÍBRIDO' }), [])
+  assert.deepEqual(ids('', { modalidade: 'Híbrido' }), [])
+  assert.deepEqual(ids('', { status: 'Inscrito' }), [])
+  assert.deepEqual(ids('', { status: 'Todos', modalidade: 'Todas' }), [])
+  assert.deepEqual(filtrarCandidaturas([], '', { status: 'SALVA', modalidade: 'HIBRIDO' }), [])
+})
+
+test('filtros combinados preservam ordem, referências, lista e critérios originais', () => {
+  const antes = structuredClone(itensComFiltros)
+  const filtros = Object.freeze({ status: '', modalidade: 'HIBRIDO' })
+  const resultado = filtrarCandidaturas(itensComFiltros, 'cloud', filtros)
+  assert.deepEqual(resultado, [itensComFiltros[1], itensComFiltros[3]])
+  assert.strictEqual(resultado[0], itensComFiltros[1])
+  assert.strictEqual(resultado[1], itensComFiltros[3])
+  assert.deepEqual(itensComFiltros, antes)
+  assert.deepEqual(filtros, { status: '', modalidade: 'HIBRIDO' })
+  assert.equal(itensComFiltros.length, 6)
+  assert.equal(itensComFiltros.filter((item) => item.status === 'ENTREVISTA').length, 2)
+})
+
+test('reaplica os mesmos filtros após cadastro, edição, exclusão e atualização', () => {
+  const filtros = Object.freeze({ status: 'ENTREVISTA', modalidade: 'HIBRIDO' })
+  assert.deepEqual(ids('java', filtros), [6])
+  const nova = { id: 7, empresa: 'Nova', titulo: 'Java', status: 'ENTREVISTA', modalidade: 'HIBRIDO' }
+  const cadastrados = [nova, ...itensComFiltros]
+  assert.deepEqual(ids('java', filtros, cadastrados), [7, 6])
+  const editados = cadastrados.map((item) => item.id === 6 ? { ...item, status: 'SALVA' } : item)
+  assert.deepEqual(ids('java', filtros, editados), [7])
+  assert.deepEqual(ids('java', filtros, editados.filter((item) => item.id !== 7)), [])
+  assert.deepEqual(ids('java', filtros, [itensComFiltros[5], nova]), [6, 7])
+})

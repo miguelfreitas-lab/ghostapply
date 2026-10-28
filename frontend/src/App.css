@@ -36,6 +36,9 @@ input::placeholder { color: #ac98b2; } .acoes { display: flex; flex-wrap: wrap; 
 .lista-cabecalho { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-bottom: 18px; border-bottom: 1px solid var(--border); }
 .lista-cabecalho h3 { font-size: 18px; font-weight: 500; } .count { background: var(--surface-raised); color: var(--lavender); font-size: 12px; border-radius: 20px; padding: 4px 9px; margin-left: 6px; }
 .busca-candidaturas { margin-top: 18px; }
+.seletores-filtros { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 12px; }
+.seletores-filtros label { grid-column: auto; }
+@media (max-width: 480px) { .seletores-filtros { grid-template-columns: 1fr; } }
 .lista-cabecalho { flex-wrap: wrap; }
 .candidaturas { list-style: none; padding: 0; margin-block: 18px 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
 .candidaturas li { padding: 20px; border: 1px solid var(--border); border-radius: 3px; overflow-wrap: anywhere; background: var(--surface); }
