@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { filtrarCandidaturas } from './buscaCandidaturas'
+import { ordenarCandidaturas } from './ordenarCandidaturas'
+import type { OrdenacaoCandidaturas } from './ordenarCandidaturas'
 
 const modalidades = [
   { value: 'REMOTO', label: 'REMOTO' },
@@ -33,6 +35,7 @@ export default function Candidaturas() {
   const [busca, setBusca] = useState('')
   const [statusFiltro, setStatusFiltro] = useState<Dados['status'] | ''>('')
   const [modalidadeFiltro, setModalidadeFiltro] = useState<Dados['modalidade'] | ''>('')
+  const [ordenacao, setOrdenacao] = useState<OrdenacaoCandidaturas>('recentes')
   const [dados, setDados] = useState<Dados>(vazio)
   const [editando, setEditando] = useState<number | null>(null)
   const [carregando, setCarregando] = useState(true)
@@ -97,6 +100,7 @@ export default function Candidaturas() {
     status: statusFiltro,
     modalidade: modalidadeFiltro,
   })
+  const itensOrdenados = ordenarCandidaturas(itensFiltrados, ordenacao)
 
   const indicadores = [
     { label: 'Oportunidades no radar', valor: itens.length, classe: 'cream', detalhe: 'Todas as candidaturas' },
@@ -106,7 +110,7 @@ export default function Candidaturas() {
 
   return <section aria-labelledby="candidaturas-titulo">
     <div className="stats" aria-label="Resumo das candidaturas" aria-busy={carregando}>{indicadores.map((indicador) => <article className={`stat ${indicador.classe}`} key={indicador.label}><p>{indicador.label}</p><strong>{carregando || (erro && itens.length === 0) ? '—' : indicador.valor.toString().padStart(2, '0')}</strong><span>{indicador.detalhe}</span></article>)}</div>
-    <div className="section-heading"><div><p className="eyebrow">SEU PRÓXIMO CAPÍTULO</p><h2 id="candidaturas-titulo">Oportunidades em movimento<span>.</span></h2></div><span className="section-index" aria-hidden="true">01 / SEU RADAR</span></div>
+    <div className="section-heading"><div><p className="eyebrow">SEU PRÓXIMO CAPÍTULO</p><h2 id="candidaturas-titulo">Oportunidades em movimento<span>.</span></h2></div><span className="section-index" aria-hidden="true">PAINEL DE CANDIDATURAS</span></div>
     {erro && <p role="alert" className="erro">{erro}</p>}
     <p role="status" className="sucesso">{sucesso}</p>
     <div className="workspace"><form id="formulario" onSubmit={salvar}>
@@ -140,11 +144,17 @@ export default function Candidaturas() {
           {modalidades.map((opcao) => <option key={opcao.value} value={opcao.value}>{opcao.label.charAt(0) + opcao.label.slice(1).toLowerCase()}</option>)}
         </select>
       </label>
+      <label className="seletor-ordenacao" htmlFor="ordenacao-data">Ordenar por data
+        <select id="ordenacao-data" value={ordenacao} onChange={(event) => setOrdenacao(event.target.value as OrdenacaoCandidaturas)}>
+          <option value="recentes">Mais recentes primeiro</option>
+          <option value="antigas">Mais antigas primeiro</option>
+        </select>
+      </label>
     </div>
     </div>
     {carregando ? <p role="status">Carregando candidaturas...</p> : itens.length === 0 ? <div className="empty-state"><span aria-hidden="true">✳</span><h3>{erro ? 'Seu radar está indisponível' : 'Tudo começa com uma oportunidade.'}</h3><p>{erro ? 'Tente atualizar a lista para carregar suas candidaturas.' : 'Encontrou uma vaga interessante? Registre ao lado e acompanhe por aqui.'}</p></div> :
       itensFiltrados.length === 0 ? <div className="empty-state"><span aria-hidden="true">✳</span><h3>Nenhuma candidatura encontrada.</h3><p>Tente outro texto ou ajuste os filtros de status e modalidade.</p></div> :
-      <ul className="candidaturas">{itensFiltrados.map((item) => <li key={item.id}>
+      <ul className="candidaturas">{itensOrdenados.map((item) => <li key={item.id}>
         <div className="card-top"><span className="company-avatar" aria-hidden="true">{item.empresa.slice(0, 1).toUpperCase()}</span><span className={`status status-${item.status.toLowerCase()}`}>{item.status}</span></div><p className="company-name">{item.empresa}</p><h3>{item.titulo}</h3>
         <p>{modalidades.find((opcao) => opcao.value === item.modalidade)?.label ?? item.modalidade} · {item.status}</p>
         <p>Criada em {new Date(item.criadaEm).toLocaleString('pt-BR')}</p>

@@ -51,6 +51,18 @@ test('o formulário mostra HÍBRIDO com value HIBRIDO para a API', async () => {
       { value: 'HIBRIDO', label: 'Híbrido' },
       { value: 'PRESENCIAL', label: 'Presencial' },
     ])
+    assert.match(html, /<label class="seletor-ordenacao" for="ordenacao-data">Ordenar por data/)
+    const ordenacao = html.match(/<select id="ordenacao-data"[^>]*>([\s\S]*?)<\/select>/)
+    assert.ok(ordenacao, 'O seletor de ordenação deve estar presente')
+    assert.match(ordenacao[1], /<option value="recentes" selected="">Mais recentes primeiro<\/option>/)
+    assert.deepEqual(
+      [...ordenacao[1].matchAll(/<option\b[^>]*value="([^"]*)"[^>]*>([^<]*)<\/option>/g)]
+        .map(([, value, label]) => ({ value, label })),
+      [
+        { value: 'recentes', label: 'Mais recentes primeiro' },
+        { value: 'antigas', label: 'Mais antigas primeiro' },
+      ],
+    )
   } finally {
     await vite.close()
   }
