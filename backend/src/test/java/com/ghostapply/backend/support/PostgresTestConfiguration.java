@@ -2,6 +2,7 @@ package com.ghostapply.backend.support;
 
 import com.zaxxer.hikari.HikariDataSource;
 import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.boot.flyway.autoconfigure.FlywayDataSource;
 import org.springframework.context.annotation.Bean;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import java.util.UUID;
@@ -14,13 +15,13 @@ public class PostgresTestConfiguration {
                 .withDatabaseName("ghostapply_it")
                 .withUsername("ghostapply_it")
                 .withPassword(UUID.randomUUID().toString())
-                .withReuse(false)
-                .withInitScript("db/migration/V1__criar_candidaturas.sql");
+                .withReuse(false);
     }
 
     @Bean(destroyMethod = "close")
+    @FlywayDataSource
     HikariDataSource dataSource(PostgreSQLContainer postgres) {
-        // A dependência do bean garante start + SQL concluídos antes do DataSource.
+        // Flyway e JPA recebem este mesmo DataSource; nenhuma conexão vem das propriedades.
         if (!postgres.isRunning()) {
             throw new IllegalStateException("PostgreSQL de testes indisponível; conexão alternativa proibida");
         }

@@ -19,21 +19,23 @@ não versione senhas ou outros segredos.
 
 ### Preparar o banco
 
-O JPA permanece com `spring.jpa.hibernate.ddl-auto=validate`: ele valida o esquema,
-mas não cria nem apaga tabelas. Antes de iniciar o backend, aplique **uma vez**
-`backend/src/main/resources/db/migration/V1__criar_candidaturas.sql` no banco já
-configurado. Use o editor SQL do pgAdmin ou, na raiz do repositório:
+**O banco de desenvolvimento existente ainda NÃO foi adotado pelo Flyway.**
+Ele possui a V1 aplicada manualmente. Sua adoção exigirá conferência do esquema,
+backup e uma operação de baseline explícita na versão 1, separada e expressamente
+autorizada. Nenhum baseline, leitura ou migração desse banco foi executado nesta
+etapa. Não inicie esta versão contra esse banco antes dessa adoção: a inicialização
+deve ser recusada quando houver tabelas sem histórico Flyway.
 
-```powershell
-psql -h localhost -U SEU_USUARIO -d SEU_BANCO -W -v ON_ERROR_STOP=1 -f backend/src/main/resources/db/migration/V1__criar_candidaturas.sql
-```
+O backend agora usa Flyway na inicialização. Em um banco vazio e autorizado, ele
+executa a V1 original de `db/migration` e registra seu checksum em
+`flyway_schema_history`. Em seguida o Hibernate valida o mapeamento com
+`spring.jpa.hibernate.ddl-auto=validate`. Não reaplique a V1 manualmente e não
+remova tabelas para resolver falhas. O conteúdo da V1 permanece inalterado.
 
-Substitua usuário e banco pelos valores locais; a senha será solicitada sem entrar
-no comando. O script cria somente a tabela `candidaturas`, em uma transação, sem
-apagar dados. Não há execução automática nem controle automático de versões de
-migrações: registre a aplicação de V1 no seu ambiente e não execute novamente.
-Se a tabela já existir, confira o esquema antes de aplicar qualquer alteração;
-não remova a tabela para reaplicar a migração.
+As configurações mantêm `baseline-on-migrate=false`, `validate-on-migrate=true`,
+`clean-disabled=true`, `fail-on-missing-locations=true` e `out-of-order=false`.
+`spring.sql.init.mode=never` evita um segundo mecanismo de inicialização.
+Não são executadas operações de limpeza ou reparo do histórico.
 
 ### Iniciar
 
@@ -137,16 +139,21 @@ Sem Docker disponível, a integração falha; ela não é pulada silenciosamente
 O isolamento funciona assim:
 
 - `PostgresIntegrationTest` aplica o perfil `integration` e importa a configuração
-  exclusiva de testes. Todos os testes com acesso real ao banco herdam essa base.
+  exclusiva de testes para o CRUD e o contexto da aplicação. Os cenários de ciclo
+  de vida Flyway usam outro contêiner exclusivo e schemas novos por cenário.
 - `PostgresTestConfiguration` cria o contêiner sem reutilização, com porta dinâmica,
   banco e usuário `ghostapply_it` e senha aleatória. Nenhum volume do banco local é
   montado. O contêiner é parado ao encerrar seu contexto Spring.
-- A V1 original é aplicada pelo Testcontainers antes da criação do `DataSource` e
-  da validação Hibernate. Não há cópia da migração nem `create-drop`.
+- O contêiner inicia vazio. O Flyway do Spring Boot aplica a V1 original antes da
+  validação Hibernate; não há `withInitScript` nem `create-drop`.
 - O `DataSource` é construído diretamente com os dados do contêiner em execução;
   não lê `spring.datasource.*` nem `DB_PASSWORD`. Mesmo propriedades externas de
   conexão não o redirecionam ao banco de desenvolvimento. O perfil ainda contém
   uma URL sentinela inválida para impedir fallback se a configuração for omitida.
+- O mesmo bean recebe `@FlywayDataSource`, garantindo prioridade sobre propriedades
+  externas `spring.flyway.url/user/password`. Um teste verifica a identidade entre
+  o DataSource do Flyway e o do contêiner; os cenários também usam propriedades
+  JDBC externas inválidas de propósito.
 - Os testes de persistência usam service e repository reais, transações confirmadas,
   releitura em outras transações e consultas JDBC. Removem somente os registros que
   criaram nesse banco descartável; não dependem de IDs fixos ou da ordem dos testes.
@@ -159,6 +166,41 @@ recusa um contêiner parado e não abre conexão ao apenas montar um `DataSource
 Não é necessário iniciar o backend, preparar o banco de desenvolvimento ou fornecer
 sua senha. Não existe opção de usar um PostgreSQL externo como alternativa nesses
 testes. Esta etapa não adiciona GitHub Actions.
+
+### Validação do Flyway exclusivamente em contêineres
+
+O Spring Boot 4.1.1 gerencia a versão do Flyway. O projeto declara
+`spring-boot-starter-flyway` e `flyway-database-postgresql`, sem versões próprias.
+Os testes rápidos sem DataSource mantêm Flyway desabilitado somente nesse contexto.
+
+Além do CRUD real, `FlywayLifecycleIT` verifica:
+
+- Banco vazio migrado pela V1 original e histórico com checksum.
+- Reinicialização sem reaplicar a V1 ou alterar seu histórico.
+- Legado simulado no contêiner, com V1 aplicada manualmente, registro inserido e
+  baseline explícito 1 preservando todos os campos. Esse é o único cenário de
+  baseline; `baseline-on-migrate` continua sempre falso.
+- Recusa de inicialização para legado sem baseline, checksum divergente e migração
+  incompatível. As fixtures negativas ficam apenas em `src/test/resources`, fora
+  da localização das migrações normais.
+- Preservação dos dados existentes e rollback da transação da V2 incompatível de
+  teste, sem limpeza ou reparo.
+
+Execute tudo com `.\mvnw.cmd -Pintegration verify` a partir de `backend`.
+Para somente os cenários Flyway, além dos testes rápidos:
+`.\mvnw.cmd -Pintegration "-Dit.test=FlywayLifecycleIT" verify`.
+
+A V1 contém `BEGIN`/`COMMIT` explícitos. O PostgreSQL pode emitir o aviso de
+transação já em andamento quando o Flyway a executa; a execução e o histórico são
+verificados nos testes. Isso não oferece garantia de atomicidade entre o COMMIT
+explícito e a gravação do histórico em caso de interrupção nesse intervalo.
+Não altere a V1 nem use reparo automático para esconder divergências.
+
+Em uma falha futura, a aplicação deve permanecer sem inicializar até diagnóstico.
+Migrações já confirmadas não são desfeitas por reverter o código da aplicação.
+Prefira uma nova migração corretiva compatível ou restauração de backup testada,
+com planejamento para preservar gravações posteriores. A adoção do banco de
+desenvolvimento permanece uma etapa posterior e exige autorização expressa.
 
 Validação manual: cadastrar, recarregar a página para conferir persistência, editar,
 excluir, cancelar uma exclusão e desligar o backend para verificar o erro de conexão.

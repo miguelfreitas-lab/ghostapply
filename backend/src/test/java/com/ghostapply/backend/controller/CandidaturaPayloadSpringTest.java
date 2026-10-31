@@ -21,7 +21,10 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 // Usa a configuração MVC/Jackson e a validação do Spring; somente a persistência é simulada.
-@SpringBootTest(properties = "spring.autoconfigure.exclude=org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration")
+@SpringBootTest(properties = {
+        "spring.autoconfigure.exclude=org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration",
+        "spring.flyway.enabled=false"
+})
 @AutoConfigureMockMvc
 class CandidaturaPayloadSpringTest {
     @Autowired private MockMvc mvc;
