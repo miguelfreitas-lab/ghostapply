@@ -106,8 +106,59 @@ cd backend
 Os testes `CandidaturaServiceTest` e `CandidaturaControllerTest` usam mocks e não
 dependem do banco. Para executá-los isoladamente:
 `.\mvnw.cmd "-Dtest=CandidaturaServiceTest,CandidaturaControllerTest" test`.
-O teste existente `BackendApplicationTests` inicia o contexto completo e exige
-PostgreSQL acessível e a migração aplicada.
+O teste de contexto foi movido para `BackendApplicationIT` e usa exclusivamente
+um PostgreSQL descartável do Testcontainers, assim como os demais testes `*IT`.
+
+### Testes PostgreSQL isolados (v0.4)
+
+Requisitos: Java 21, Maven (ou wrapper) e Docker Desktop com contêineres Linux
+funcionando. O primeiro uso precisa baixar a imagem `postgres:18.0-alpine` e as
+dependências Maven. A versão do Testcontainers é gerenciada pelo Spring Boot;
+apenas o módulo `testcontainers-postgresql` foi adicionado, com escopo `test`.
+
+Execute a partir de `backend`:
+
+```powershell
+# Testes rápidos: não iniciam Docker e não acessam PostgreSQL.
+.\mvnw.cmd test
+
+# Testes rápidos + integração real (Maven Failsafe).
+.\mvnw.cmd -Pintegration verify
+
+# Somente uma classe de integração, além dos testes rápidos.
+.\mvnw.cmd -Pintegration "-Dit.test=CandidaturaPersistenciaIT" verify
+```
+
+Se necessário, substitua `.\mvnw.cmd` por `mvn`. Em Linux/macOS, use `./mvnw`.
+Não use apenas a fase `integration-test`: `verify` também verifica os resultados
+do Failsafe. Relatórios: `target/surefire-reports` e `target/failsafe-reports`.
+Sem Docker disponível, a integração falha; ela não é pulada silenciosamente.
+
+O isolamento funciona assim:
+
+- `PostgresIntegrationTest` aplica o perfil `integration` e importa a configuração
+  exclusiva de testes. Todos os testes com acesso real ao banco herdam essa base.
+- `PostgresTestConfiguration` cria o contêiner sem reutilização, com porta dinâmica,
+  banco e usuário `ghostapply_it` e senha aleatória. Nenhum volume do banco local é
+  montado. O contêiner é parado ao encerrar seu contexto Spring.
+- A V1 original é aplicada pelo Testcontainers antes da criação do `DataSource` e
+  da validação Hibernate. Não há cópia da migração nem `create-drop`.
+- O `DataSource` é construído diretamente com os dados do contêiner em execução;
+  não lê `spring.datasource.*` nem `DB_PASSWORD`. Mesmo propriedades externas de
+  conexão não o redirecionam ao banco de desenvolvimento. O perfil ainda contém
+  uma URL sentinela inválida para impedir fallback se a configuração for omitida.
+- Os testes de persistência usam service e repository reais, transações confirmadas,
+  releitura em outras transações e consultas JDBC. Removem somente os registros que
+  criaram nesse banco descartável; não dependem de IDs fixos ou da ordem dos testes.
+
+Cobertura de integração: contexto/conexão isolada, diagnóstico de esquema/HTTP,
+ciclo CRUD completo, geração e preservação da data, enums de modalidade e status
+e ordenação por data/ID. Os testes rápidos também verificam que a configuração
+recusa um contêiner parado e não abre conexão ao apenas montar um `DataSource`.
+
+Não é necessário iniciar o backend, preparar o banco de desenvolvimento ou fornecer
+sua senha. Não existe opção de usar um PostgreSQL externo como alternativa nesses
+testes. Esta etapa não adiciona GitHub Actions.
 
 Validação manual: cadastrar, recarregar a página para conferir persistência, editar,
 excluir, cancelar uma exclusão e desligar o backend para verificar o erro de conexão.

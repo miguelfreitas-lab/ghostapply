@@ -4,9 +4,9 @@ import com.ghostapply.backend.model.Candidatura;
 import com.ghostapply.backend.model.Modalidade;
 import com.ghostapply.backend.model.StatusCandidatura;
 import com.ghostapply.backend.repository.CandidaturaRepository;
+import com.ghostapply.backend.support.PostgresIntegrationTest;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.http.MediaType;
@@ -21,13 +21,12 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 /**
- * Diagnóstico explícito: requer o PostgreSQL configurado e a tabela existente.
- * Executar com -Dtest=CandidaturaDiagnosticoPostgresIT. Não cria nem altera dados.
+ * Diagnóstico executado exclusivamente no PostgreSQL temporário do Testcontainers.
+ * Executar com -Pintegration -Dit.test=CandidaturaDiagnosticoPostgresIT verify.
  */
-@SpringBootTest(properties = "spring.jpa.hibernate.ddl-auto=validate")
 @AutoConfigureMockMvc
 @Transactional(readOnly = true)
-class CandidaturaDiagnosticoPostgresIT {
+class CandidaturaDiagnosticoPostgresIT extends PostgresIntegrationTest {
     @Autowired private MockMvc mvc;
     @Autowired private JdbcTemplate jdbc;
     @MockitoSpyBean private CandidaturaRepository repository;
